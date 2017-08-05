@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>Bootstrap 3, from LayoutIt!</title>
+
+    <meta name="description" content="Source code generated using layoutit.com">
+    <meta name="author" content="LayoutIt!">
+
+    <link href="/static/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/css/style.css" rel="stylesheet">
+
+  </head>
+  <body>
+
+    <div class="container-fluid">
+	<div class="row">
+		<div class="col-md-12">
+			<img id='rsImg' alt="Bootstrap Image Preview" > 
+			<div id='itemName' value=''>名称:<span></span></div>
+			<div id='desc' >简介:<span></span></div>
+			<button id='bLike' type="button" class="btn btn-default" value='0'>
+				喜欢
+			</button> 
+			<button id='bUnlike' type="button" class="btn btn-default" value='1'>
+				不喜欢
+            </button>
+            <button id='bSpeech' type="button" class="btn btn-default">
+                请说话
+            </button>
+		</div>
+	</div>
+</div>
+  <pre id="log"></pre>
+
+    <script src="/static/js/jquery.min.js"></script>
+    <script src="/static/js/bootstrap.min.js"></script>
+    <script src="/static/js/scripts.js"></script>
+    <script src="/static/js/recorder.js"></script>
+    <script>
+
+  function __log(e, data) {
+    log.innerHTML += "\n" + e + " " + (data || '');
+  }
+    var audio_context;
+    var recorder;
+    function enableButton() {
+        $("button").attr("disabled",false);
+    }
+    function disableButton() {
+        $("button").attr("disabled",true);
+    }
+
+    $("button#bLike,button#bUnlike").click(function(){
+        disableButton();
+        $.post("/feedback",{
+            value:$(this).attr('value'),
+            item:$('#itemName').attr('value')
+        },
+        function(data,status){
+            //if (status == 200) {}
+            //alert("数据: \n" + data + "\n状态: " + status);
+            getRecommendInfo();
+        });
+    });
+
+    $(document).ready(function(){
+        disableButton();
+        getRecommendInfo();
+    });
+
+    function getRecommendInfo() {
+        $.get("recommend",function(data,status){
+            $('#itemName span').text( data['name']);
+            $('#rsImg').attr('src', data['imgSrc']);
+            $('#desc span').text( data['desc']);
+            $('#itemName').attr('value', data['item']);
+            $("button").attr("disabled",false);
+            enableButton();
+            //alert("Data: " + data + "nStatus: " + status);
+        }, 'json');
+    }
+
+
+    function rsRecord(curObj,count) {
+        if (count == 0) {
+            stopRecording();
+        } else {
+            curObj.text("记录中(" + count + "s)");
+            setTimeout(rsRecord,1000,curObj,count-1);
+        }
+    }
+
+    $('button#bSpeech').click(function(){
+        disableButton();
+        rsRecord($(this),5);
+        startRecording();
+    }); 
+
+    window.onload = function init() {
+        try {
+            // webkit shim
+            window.AudioContext = window.AudioContext || window.webkitAudioContext;
+            navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia ;
+
+            audio_context = new AudioContext;
+            __log('Audio context set up.');
+            __log('navigator.getUserMedia ' + (navigator.getUserMedia ? 'available.' : 'not present!'));
+        } catch (e) {
+            alert('No web audio support in this browser!');
+        }
+
+        navigator.getUserMedia({audio: true}, startUserMedia, function(e) {
+            __log('No live audio input: ' + e);
+        });
+    };
+
+  function startUserMedia(stream) {
+    var input = audio_context.createMediaStreamSource(stream);
+    __log('Media stream created.');
+
+    recorder = new Recorder(input,{
+            bufferLen: 4096,
+            numChannels: 1,
+            mimeType: 'audio/wav'
+        });
+    __log('Recorder initialised.');
+  }
+
+  function startRecording() {
+    recorder && recorder.record();
+    __log('Recording...');
+  }
+
+  function stopRecording() {
+    recorder && recorder.stop();
+    __log('Stopped recording.');
+    
+    // create WAV download link using audio data blob
+    sendToServer();
+    
+    recorder.clear();
+  }
+
+  function sendToServer() {
+    recorder && recorder.exportWAV(function(blob) {
+        var fd = new FormData();
+        fd.append('data', blob);
+        fd.append('item', $('#itemName').attr('value'));
+        $.ajax({
+            type: 'POST',
+            url: '/feedbackSpeech',
+            data: fd,
+            processData: false,
+            contentType: false
+        }).done(function(data) {
+            __log("recognition done.");
+            __log(data);
+            getRecommendInfo();
+            $('#bSpeech').text("请说话");
+        });
+
+
+    });
+  }
+    </script>
+  </body>
+</html>
