@@ -51,6 +51,7 @@ sudo apt-get install libapache2-mod-wsgi
         </VirtualHost>
     </IfModule>
     # 需要这一步生效
+    sudo a2enmod ssl
     sudo a2ensite
     ```
     * 如果部署http模式
